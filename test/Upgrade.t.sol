@@ -12,7 +12,7 @@ contract MockERC20 is ERC20 {
     constructor() ERC20("Mock Token", "MOCK") {
         _mint(msg.sender, 1000000 ether);
     }
-    
+
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
     }
@@ -30,7 +30,7 @@ contract UpgradeTest is Test {
     function setUp() public {
         // Deploy mock token
         token = new MockERC20();
-        
+
         // Deploy V1 implementation
         FeeVaultV1 implementationV1 = new FeeVaultV1();
 
@@ -40,7 +40,7 @@ contract UpgradeTest is Test {
         // Deploy proxy
         proxy = new ERC1967Proxy(address(implementationV1), initData);
         vaultV1 = FeeVaultV1(address(proxy));
-        
+
         // Fund user with tokens
         token.mint(user, 1000 ether);
     }
@@ -48,15 +48,14 @@ contract UpgradeTest is Test {
     function testUpgradePreservesOwnership() public {
         // Verify V1 owner
         assertEq(vaultV1.owner(), owner, "V1 owner incorrect");
-        
+
         // Deploy V2 implementation
         FeeVaultV2 implementationV2 = new FeeVaultV2();
 
         // Upgrade from V1 to V2
         vm.prank(owner);
         vaultV1.upgradeToAndCall(
-            address(implementationV2),
-            abi.encodeCall(FeeVaultV2.initializeV2, (100 ether, 1 days))
+            address(implementationV2), abi.encodeCall(FeeVaultV2.initializeV2, (100 ether, 1 days))
         );
 
         // Cast proxy to V2
@@ -64,7 +63,7 @@ contract UpgradeTest is Test {
 
         // ASSERT: Owner preserved
         assertEq(vaultV2.owner(), owner, "Owner not preserved");
-        
+
         // ASSERT: Version changed
         assertEq(vaultV2.version(), "2.0.0", "Version not updated");
     }
@@ -75,8 +74,7 @@ contract UpgradeTest is Test {
 
         vm.prank(owner);
         vaultV1.upgradeToAndCall(
-            address(implementationV2),
-            abi.encodeCall(FeeVaultV2.initializeV2, (100 ether, 2 days))
+            address(implementationV2), abi.encodeCall(FeeVaultV2.initializeV2, (100 ether, 2 days))
         );
 
         vaultV2 = FeeVaultV2(address(proxy));
@@ -91,10 +89,7 @@ contract UpgradeTest is Test {
         // Upgrade to V2
         FeeVaultV2 implementationV2 = new FeeVaultV2();
         vm.prank(owner);
-        vaultV1.upgradeToAndCall(
-            address(implementationV2),
-            abi.encodeCall(FeeVaultV2.initializeV2, (0, 0))
-        );
+        vaultV1.upgradeToAndCall(address(implementationV2), abi.encodeCall(FeeVaultV2.initializeV2, (0, 0)));
         vaultV2 = FeeVaultV2(address(proxy));
 
         // Pause
@@ -118,7 +113,7 @@ contract UpgradeTest is Test {
         vm.startPrank(user);
         vaultV2.deposit(address(token), 50 ether);
         vm.stopPrank();
-        
+
         assertEq(vaultV2.getBalance(address(token)), 50 ether, "Deposit failed");
     }
 
@@ -126,10 +121,7 @@ contract UpgradeTest is Test {
         // Upgrade to V2 with 1 day delay
         FeeVaultV2 implementationV2 = new FeeVaultV2();
         vm.prank(owner);
-        vaultV1.upgradeToAndCall(
-            address(implementationV2),
-            abi.encodeCall(FeeVaultV2.initializeV2, (0, 1 days))
-        );
+        vaultV1.upgradeToAndCall(address(implementationV2), abi.encodeCall(FeeVaultV2.initializeV2, (0, 1 days)));
         vaultV2 = FeeVaultV2(address(proxy));
 
         // Deposit
@@ -153,7 +145,7 @@ contract UpgradeTest is Test {
         // Now should work
         vm.prank(owner);
         vaultV2.withdraw(address(token), owner, 10 ether);
-        
+
         assertEq(vaultV2.getBalance(address(token)), 80 ether, "Withdrawal balance incorrect");
     }
 
@@ -161,10 +153,7 @@ contract UpgradeTest is Test {
         // Upgrade to V2 with 50 ether limit
         FeeVaultV2 implementationV2 = new FeeVaultV2();
         vm.prank(owner);
-        vaultV1.upgradeToAndCall(
-            address(implementationV2),
-            abi.encodeCall(FeeVaultV2.initializeV2, (50 ether, 0))
-        );
+        vaultV1.upgradeToAndCall(address(implementationV2), abi.encodeCall(FeeVaultV2.initializeV2, (50 ether, 0)));
         vaultV2 = FeeVaultV2(address(proxy));
 
         // Deposit
@@ -181,7 +170,7 @@ contract UpgradeTest is Test {
         // Withdraw within limit
         vm.prank(owner);
         vaultV2.withdraw(address(token), owner, 50 ether);
-        
+
         assertEq(vaultV2.getBalance(address(token)), 150 ether, "Balance incorrect");
     }
 
@@ -191,10 +180,7 @@ contract UpgradeTest is Test {
         // Non-owner cannot upgrade
         vm.prank(user);
         vm.expectRevert();
-        vaultV1.upgradeToAndCall(
-            address(implementationV2),
-            abi.encodeCall(FeeVaultV2.initializeV2, (0, 0))
-        );
+        vaultV1.upgradeToAndCall(address(implementationV2), abi.encodeCall(FeeVaultV2.initializeV2, (0, 0)));
     }
 
     function testV1BasicFunctionality() public {
@@ -208,7 +194,7 @@ contract UpgradeTest is Test {
         uint256 balanceBefore = token.balanceOf(owner);
         vm.prank(owner);
         vaultV1.withdraw(address(token), owner, 50 ether);
-        
+
         assertEq(token.balanceOf(owner) - balanceBefore, 50 ether, "Withdrawal failed");
     }
 }

@@ -1,22 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { VaultStorage } from "./VaultStorage.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {VaultStorage} from "./VaultStorage.sol";
 
 /// @title FeeVaultV2
 /// @notice Upgradeable vault for holding protocol fees with enhanced security
 /// @dev V2 adds: withdrawal delays, per-tx limits, pause mechanism, and balance tracking
 /// @custom:security-contact For resume demonstration - shows upgrade-safe storage patterns
-contract FeeVaultV2 is
-    Initializable,
-    UUPSUpgradeable,
-    OwnableUpgradeable
-{
+contract FeeVaultV2 is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     using SafeERC20 for IERC20;
 
     /*//////////////////////////////////////////////////////////////
@@ -49,16 +45,13 @@ contract FeeVaultV2 is
     ///      Owner from V1 is preserved in inherited OwnableUpgradeable storage.
     /// @param _maxWithdrawPerTx Maximum withdrawal per transaction in wei (0 = unlimited)
     /// @param _withdrawalDelay Minimum seconds between withdrawals per token (0 = no delay)
-    function initializeV2(
-        uint256 _maxWithdrawPerTx,
-        uint256 _withdrawalDelay
-    ) external reinitializer(2) {
+    function initializeV2(uint256 _maxWithdrawPerTx, uint256 _withdrawalDelay) external reinitializer(2) {
         VaultStorage.Layout storage s = VaultStorage.layout();
-        
+
         s.maxWithdrawPerTx = _maxWithdrawPerTx;
         s.withdrawalDelay = _withdrawalDelay;
         s.paused = false;
-        
+
         // Owner is already set from V1, preserved in OwnableUpgradeable storage
     }
 
@@ -74,7 +67,7 @@ contract FeeVaultV2 is
     /// @param amount The amount of tokens to deposit (must be > 0)
     function deposit(address token, uint256 amount) external {
         VaultStorage.Layout storage s = VaultStorage.layout();
-        
+
         require(token != address(0), "FeeVault: ZERO_TOKEN");
         require(amount > 0, "FeeVault: ZERO_AMOUNT");
         require(!s.paused, "FeeVault: PAUSED");
@@ -95,11 +88,7 @@ contract FeeVaultV2 is
     /// @param token The ERC20 token address to withdraw (cannot be zero address)
     /// @param to The recipient address (cannot be zero address)
     /// @param amount The amount to withdraw (must be > 0 and <= balance)
-    function withdraw(
-        address token,
-        address to,
-        uint256 amount
-    ) external onlyOwner {
+    function withdraw(address token, address to, uint256 amount) external onlyOwner {
         VaultStorage.Layout storage s = VaultStorage.layout();
 
         require(token != address(0), "FeeVault: ZERO_TOKEN");
@@ -111,25 +100,16 @@ contract FeeVaultV2 is
         uint256 lastWithdraw = s.lastWithdrawAt[token];
         // Only enforce delay if there was a previous withdrawal
         if (lastWithdraw > 0) {
-            require(
-                block.timestamp >= lastWithdraw + s.withdrawalDelay,
-                "FeeVault: WITHDRAWAL_TOO_SOON"
-            );
+            require(block.timestamp >= lastWithdraw + s.withdrawalDelay, "FeeVault: WITHDRAWAL_TOO_SOON");
         }
 
         // V2 Feature: Per-transaction limit (0 = unlimited)
         if (s.maxWithdrawPerTx > 0) {
-            require(
-                amount <= s.maxWithdrawPerTx,
-                "FeeVault: EXCEEDS_MAX_WITHDRAW"
-            );
+            require(amount <= s.maxWithdrawPerTx, "FeeVault: EXCEEDS_MAX_WITHDRAW");
         }
 
         // V2 Feature: Balance tracking
-        require(
-            s.balances[token] >= amount,
-            "FeeVault: INSUFFICIENT_BALANCE"
-        );
+        require(s.balances[token] >= amount, "FeeVault: INSUFFICIENT_BALANCE");
 
         // CEI pattern: Update state before external call
         s.balances[token] -= amount;
@@ -150,23 +130,19 @@ contract FeeVaultV2 is
     /// @param token The ERC20 token address to withdraw
     /// @param to The recipient address
     /// @param amount The amount to withdraw
-    function emergencyWithdraw(
-        address token,
-        address to,
-        uint256 amount
-    ) external onlyOwner {
+    function emergencyWithdraw(address token, address to, uint256 amount) external onlyOwner {
         VaultStorage.Layout storage s = VaultStorage.layout();
 
         require(token != address(0), "FeeVault: ZERO_TOKEN");
         require(to != address(0), "FeeVault: ZERO_TO");
         require(amount > 0, "FeeVault: ZERO_AMOUNT");
         require(!s.paused, "FeeVault: PAUSED");
-        
+
         // Check limits
         if (s.maxWithdrawPerTx > 0) {
             require(amount <= s.maxWithdrawPerTx, "FeeVault: EXCEEDS_MAX_WITHDRAW");
         }
-        
+
         require(s.balances[token] >= amount, "FeeVault: INSUFFICIENT_BALANCE");
 
         // Update state (skip delay check)
@@ -186,7 +162,7 @@ contract FeeVaultV2 is
     /// @param newDelay Delay in seconds
     function setWithdrawalDelay(uint256 newDelay) external onlyOwner {
         VaultStorage.Layout storage s = VaultStorage.layout();
-        
+
         uint256 oldDelay = s.withdrawalDelay;
         s.withdrawalDelay = newDelay;
 
@@ -197,7 +173,7 @@ contract FeeVaultV2 is
     /// @param newMax Maximum amount (0 = unlimited)
     function setMaxWithdrawPerTx(uint256 newMax) external onlyOwner {
         VaultStorage.Layout storage s = VaultStorage.layout();
-        
+
         uint256 oldMax = s.maxWithdrawPerTx;
         s.maxWithdrawPerTx = newMax;
 
@@ -209,7 +185,7 @@ contract FeeVaultV2 is
     function pause() external onlyOwner {
         VaultStorage.Layout storage s = VaultStorage.layout();
         require(!s.paused, "FeeVault: ALREADY_PAUSED");
-        
+
         s.paused = true;
         emit Paused(msg.sender);
     }
@@ -218,7 +194,7 @@ contract FeeVaultV2 is
     function unpause() external onlyOwner {
         VaultStorage.Layout storage s = VaultStorage.layout();
         require(s.paused, "FeeVault: NOT_PAUSED");
-        
+
         s.paused = false;
         emit Unpaused(msg.sender);
     }
@@ -257,11 +233,11 @@ contract FeeVaultV2 is
     function nextWithdrawalAvailable(address token) external view returns (uint256) {
         VaultStorage.Layout storage s = VaultStorage.layout();
         uint256 lastWithdraw = s.lastWithdrawAt[token];
-        
+
         if (lastWithdraw == 0) {
             return block.timestamp; // Never withdrawn, available now
         }
-        
+
         uint256 nextAvailable = lastWithdraw + s.withdrawalDelay;
         return nextAvailable > block.timestamp ? nextAvailable : block.timestamp;
     }
@@ -272,16 +248,12 @@ contract FeeVaultV2 is
 
     /// @notice Authorize upgrade to new implementation
     /// @dev Only owner can upgrade. This is the UUPS security gate.
-    function _authorizeUpgrade(address newImplementation)
-        internal
-        override
-        onlyOwner
-    {}
-    
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+
     /*//////////////////////////////////////////////////////////////
                         VERSION TRACKING
     //////////////////////////////////////////////////////////////*/
-    
+
     /// @notice Returns the version of this implementation
     /// @dev Useful for verification that upgrade succeeded
     function version() external pure returns (string memory) {

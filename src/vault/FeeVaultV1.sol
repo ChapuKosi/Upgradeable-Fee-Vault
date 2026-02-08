@@ -1,20 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title FeeVaultV1
 /// @notice Upgradeable vault for holding protocol fees (ERC20)
 /// @dev V1 supports deposits + immediate withdrawals by owner only
-contract FeeVaultV1 is
-    Initializable,
-    UUPSUpgradeable,
-    OwnableUpgradeable
-{
+contract FeeVaultV1 is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     using SafeERC20 for IERC20;
 
     /*//////////////////////////////////////////////////////////////
@@ -62,11 +58,7 @@ contract FeeVaultV1 is
     /// @param token The ERC20 token address to withdraw
     /// @param to The recipient address
     /// @param amount The amount to withdraw
-    function withdraw(
-        address token,
-        address to,
-        uint256 amount
-    ) external onlyOwner {
+    function withdraw(address token, address to, uint256 amount) external onlyOwner {
         require(token != address(0), "FeeVault: ZERO_TOKEN");
         require(to != address(0), "FeeVault: ZERO_TO");
         require(amount > 0, "FeeVault: ZERO_AMOUNT");
@@ -84,11 +76,7 @@ contract FeeVaultV1 is
     /// @dev Required by UUPS pattern. Only owner can authorize upgrades.
     ///      Override this to add custom upgrade authorization logic.
     /// @param newImplementation Address of the new implementation contract
-    function _authorizeUpgrade(address newImplementation)
-        internal
-        override
-        onlyOwner
-    {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     /*//////////////////////////////////////////////////////////////
                         VERSION TRACKING

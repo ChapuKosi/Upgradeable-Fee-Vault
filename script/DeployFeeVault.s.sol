@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import { Script } from "forge-std/Script.sol";
-import { console2 } from "forge-std/console2.sol";
-import { FeeVaultV1 } from "../src/vault/FeeVaultV1.sol";
-import { ERC1967Proxy } from
-    "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {Script} from "forge-std/Script.sol";
+import {console2} from "forge-std/console2.sol";
+import {FeeVaultV1} from "../src/vault/FeeVaultV1.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /// @title DeployFeeVault
 /// @notice Deploys FeeVaultV1 behind an ERC1967 UUPS proxy
@@ -23,12 +22,10 @@ contract DeployFeeVault is Script {
         FeeVaultV1 implementation = new FeeVaultV1();
 
         // 2. Encode initializer call
-        bytes memory initData =
-            abi.encodeCall(FeeVaultV1.initialize, (owner));
+        bytes memory initData = abi.encodeCall(FeeVaultV1.initialize, (owner));
 
         // 3. Deploy proxy pointing to implementation
-        ERC1967Proxy proxy =
-            new ERC1967Proxy(address(implementation), initData);
+        ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
 
         vm.stopBroadcast();
 

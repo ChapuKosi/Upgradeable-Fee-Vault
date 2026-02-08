@@ -8,8 +8,7 @@ pragma solidity ^0.8.30;
 ///      isolation from proxy and inherited contract storage.
 library VaultStorage {
     /// @notice Storage slot for vault data, calculated via keccak256
-    bytes32 internal constant STORAGE_SLOT =
-        keccak256("fee.vault.storage.v1");
+    bytes32 internal constant STORAGE_SLOT = keccak256("fee.vault.storage.v1");
 
     /// @notice Main storage structure for vault state
     /// @dev Fields are append-only: V1 fields first, V2 fields appended.
@@ -39,6 +38,6 @@ library VaultStorage {
 }
 
 // Diamond Storage Pattern for Upgradeable Contracts
-// All variables live at a consistent, hash-derived location that won't 
+// All variables live at a consistent, hash-derived location that won't
 // conflict with proxy storage or other contracts.
 // This enables safe upgrades: V2 appends to V1 structure without collisions.
