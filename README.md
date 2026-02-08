@@ -1,10 +1,27 @@
 # Upgradeable Fee Vault
 
+[![CI](https://github.com/ChapuKosi/Upgradeable-Fee-Vault/actions/workflows/test.yml/badge.svg)](https://github.com/ChapuKosi/Upgradeable-Fee-Vault/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Solidity](https://img.shields.io/badge/Solidity-0.8.30-blue.svg)](https://docs.soliditylang.org)
+
 UUPS upgradeable smart contract with Diamond storage pattern for safe state preservation across upgrades.
 
 ## Overview
 
 An ERC20 fee vault that demonstrates production-ready upgrade patterns. The contract starts simple (V1) with basic deposit/withdraw, then upgrades to V2 adding withdrawal delays, pause functionality, and per-transaction limits - all while preserving existing state.
+
+### Why This Matters
+
+Smart contracts are immutable, but requirements change. This project solves a real problem: how to upgrade contract logic without losing user funds or state. Used in production DeFi protocols managing millions in TVL (Uniswap, Aave, Compound all use upgradeable patterns).
+
+### Skills Demonstrated
+
+- **Proxy Patterns**: UUPS implementation with ERC1967 storage slots
+- **Storage Management**: Diamond storage pattern preventing collisions
+- **Security**: CEI pattern, reentrancy protection, access control
+- **Testing**: 7 comprehensive tests covering upgrade lifecycle
+- **Gas Optimization**: UUPS vs transparent proxy (saves ~2500 gas per call)
+- **Best Practices**: OpenZeppelin standards, SafeERC20, initializers
 
 ### What's Included
 
@@ -131,15 +148,38 @@ PRIVATE_KEY=0x... VAULT_PROXY=0x... \
 forge script script/DeployFeeVault.s.sol --rpc-url $RPC_URL --broadcast --verify
 ```
 
-## Security Notes
+## Security Considerations
 
-- SafeERC20 for all token transfers
-- CEI pattern in withdraw functions  
-- Owner-only upgrades via UUPS
-- No storage collisions (Diamond pattern)
+**Implemented**
+- SafeERC20 for all token transfers (handles non-standard tokens)
+- CEI pattern in withdraw functions (reentrancy prevention)
+- Owner-only upgrades via UUPS authorization
+- No storage collisions (Diamond pattern with namespaced slots)
 - Input validation on all external functions
+- OpenZeppelin battle-tested contracts
 
-For production: add timelock, multisig, and formal audit.
+**Production Recommendations**
+- Add timelock for upgrade delays (community review period)
+- Multi-sig ownership (prevent single point of failure)
+- Formal audit (Certora, Trail of Bits, OpenZeppelin)
+- Bug bounty program
+- Emergency pause mechanism with governance
+
+## Gas Optimization
+
+- **UUPS over Transparent Proxy**: Saves ~2500 gas per delegatecall
+- **Diamond Storage**: Single SLOAD for entire struct vs multiple slots
+- **SafeERC20**: Only when needed, normal ERC20s use standard interface
+- **Storage Packing**: Could pack `bool paused` with `uint96 delay` (future optimization)
+
+## Future Improvements
+
+- [ ] Add events for all state changes (better indexing)
+- [ ] Implement EIP-2535 (full Diamond pattern with facets)
+- [ ] Add role-based access control (RBAC)
+- [ ] Per-user withdrawal limits (not just per-tx)
+- [ ] Time-weighted average limits (prevent gaming delays)
+- [ ] Emergency withdrawal with governance vote
 
 ## Tech Stack
 
