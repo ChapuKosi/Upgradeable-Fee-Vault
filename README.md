@@ -4,34 +4,24 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.30-blue.svg)](https://docs.soliditylang.org)
 
-UUPS upgradeable smart contract with Diamond storage pattern for safe state preservation across upgrades.
+UUPS upgradeable smart contract using namespaced storage layout for safe state preservation across upgrades.
 
 ## Overview
 
-An ERC20 fee vault that demonstrates production-ready upgrade patterns. The contract starts simple (V1) with basic deposit/withdraw, then upgrades to V2 adding withdrawal delays, pause functionality, and per-transaction limits - all while preserving existing state.
+This project demonstrates upgrading smart contract logic while preserving state. An ERC20 fee vault is deployed as V1 with basic deposit/withdraw functionality, then upgraded to V2 which adds withdrawal delays, pause functionality, and per-transaction limits.
 
-### Why This Matters
+### Technical Objectives
 
-Smart contracts are immutable, but requirements change. This project solves a real problem: how to upgrade contract logic without losing user funds or state. Used in production DeFi protocols managing millions in TVL (Uniswap, Aave, Compound all use upgradeable patterns).
+This implementation demonstrates:
 
-### Skills Demonstrated
+- **UUPS Proxy Mechanics**: Upgrade authorization in implementation contract using ERC1967 standard
+- **Explicit Storage Layout Management**: Namespaced storage slot (`keccak256("fee.vault.storage.v1")`) prevents collisions across upgrades
+- **Safe Upgrade Authorization**: Owner-only upgrade function with OpenZeppelin's `UUPSUpgradeable`
+- **State Continuity**: V2 does not reorder or remove existing storage fields; it strictly appends new fields to preserve slot alignment
+- **Initialization Patterns**: Separate initializers for each version (`initializer`, `reinitializer(2)`)
+- **Testing Upgrade Lifecycle**: 7 tests covering deployment, upgrade, authorization, and state preservation
 
-- **Proxy Patterns**: UUPS implementation with ERC1967 storage slots
-- **Storage Management**: Diamond storage pattern preventing collisions
-- **Security**: CEI pattern, reentrancy protection, access control
-- **Testing**: 7 comprehensive tests covering upgrade lifecycle
-- **Gas Optimization**: UUPS vs transparent proxy (saves ~2500 gas per call)
-- **Best Practices**: OpenZeppelin standards, SafeERC20, initializers
-
-### What's Included
-
-- UUPS proxy pattern implementation
-- Diamond storage for collision-free upgrades
-- Comprehensive test suite (7 tests)
-- Deployment scripts for V1 and V2
-- Full upgrade lifecycle demonstration
-
-## Architecture
+**Note**: This uses namespaced storage slots, not the EIP-2535 Diamond Standard (which involves multiple facets).
 
 ## Architecture
 
@@ -41,18 +31,20 @@ Smart contracts are immutable, but requirements change. This project solves a re
 - No rate limiting
 
 **V2 - Enhanced Security**
-- Withdrawal delays (configurable per token)
+- Withdrawal delays (configurable)
 - Per-transaction limits
 - Pause mechanism
-- Balance tracking in Diamond storage
+- Balance tracking in namespaced storage
 - All V1 state preserved
 
-## Key Patterns
+## Key Implementation Details
 
-**UUPS Proxy**
-- Upgrade logic in implementation
-- Gas efficient vs transparent proxy
-- Owner-only authorization
+### 1. UUPS Proxy Pattern
+- Upgrade logic resides in implementation contract
+- Uses ERC1967 storage slots for proxy metadata
+- Authorization via `_authorizeUpgrade()` override
+
+### 2. Namespaced Storage Layout
 ```solidity
 library VaultStorage {
     bytes32 constant STORAGE_SLOT = keccak256("fee.vault.storage.v1");
@@ -70,26 +62,36 @@ library VaultStorage {
 }
 ```
 
-- Prevents storage collisions
-- Allows safe upgrades
-- V2 appends to V1 structure
+Explicit storage slot placement prevents collisions with proxy metadata and inherited contract storage.
 
-### 3. Proper Initialization
+### 3. Version-Specific Initialization
 ```solidity
 function initialize(address owner) external initializer { }
 function initializeV2(uint256 limit, uint256 delay) external reinitializer(2) { }
 ```
 
-- No constructors (proxy pattern)
-- `initializer` prevents re-initialization
-- `reinitializer(2)` for V2 migration
+- Proxies cannot use constructors
+- `initializer` modifier prevents re-initialization of V1
+- `reinitializer(2)` allows V2 migration once
 
-### 4. SafeERC20
-- Handles non-standard tokens
-- Prevents return value issues
-- Industry best practice
+### 4. SafeERC20 for Token Operations
+- Handles non-standard ERC20 implementations
+- Wraps transfer calls to prevent silent failures
 
 ---
+
+## Upgrade Scenario Demonstrated
+
+The test suite (`test/Upgrade.t.sol`) demonstrates the following upgrade flow:
+
+1. **Deploy V1**: Implementation and proxy deployed, proxy initialized with owner
+2. **User Deposits**: ERC20 tokens deposited into vault via proxy
+3. **Upgrade to V2**: Owner calls `upgradeToAndCall()` with V2 implementation and initialization data
+4. **State Continuity Verified**: Balances and owner address unchanged after upgrade
+5. **New Restrictions Enforced**: V2 pause and withdrawal delay mechanisms functional
+6. **Unauthorized Upgrade Fails**: Non-owner cannot upgrade proxy
+
+All upgrade lifecycle tests pass, validating state continuity and access control enforcement.
 
 ## Project Structure
 
@@ -99,7 +101,7 @@ src/
     MockERC20.sol        # Test token
   vault/
     FeeVaultV1.sol       # V1 implementation
-    FeeVaultV2.sol       # V2 with Diamond storage
+    FeeVaultV2.sol       # V2 implementation
     VaultStorage.sol     # Storage library
 
 script/
@@ -151,35 +153,42 @@ forge script script/DeployFeeVault.s.sol --rpc-url $RPC_URL --broadcast --verify
 ## Security Considerations
 
 **Implemented**
-- SafeERC20 for all token transfers (handles non-standard tokens)
-- CEI pattern in withdraw functions (reentrancy prevention)
-- Owner-only upgrades via UUPS authorization
-- No storage collisions (Diamond pattern with namespaced slots)
-- Input validation on all external functions
-- OpenZeppelin battle-tested contracts
+- SafeERC20 for token transfers (handles non-standard ERC20s)
+- CEI pattern in withdraw functions
+- Owner-only upgrades via `_authorizeUpgrade()` override
+- Namespaced storage prevents collisions with proxy storage
+- Input validation on external functions
+- OpenZeppelin audited contracts (`UUPSUpgradeable`, `OwnableUpgradeable`)
 
-**Production Recommendations**
-- Add timelock for upgrade delays (community review period)
-- Multi-sig ownership (prevent single point of failure)
-- Formal audit (Certora, Trail of Bits, OpenZeppelin)
-- Bug bounty program
-- Emergency pause mechanism with governance
+**Not Implemented (Production Requirements)**
+- Timelock on upgrades (allows community review)
+- Multi-signature ownership
+- Comprehensive event emission
+- Formal verification or third-party audit
 
-## Gas Optimization
+**Known Limitations**
+- No explicit reentrancy guard (relies on CEI pattern)
+- Single owner (centralization risk)
+- No upgrade delay mechanism
 
-- **UUPS over Transparent Proxy**: Saves ~2500 gas per delegatecall
-- **Diamond Storage**: Single SLOAD for entire struct vs multiple slots
-- **SafeERC20**: Only when needed, normal ERC20s use standard interface
-- **Storage Packing**: Could pack `bool paused` with `uint96 delay` (future optimization)
+## Threat Model Considerations
+
+Key attack vectors considered in this implementation:
+
+- **Malicious upgrade attempt**: Mitigated by `onlyOwner` modifier on `_authorizeUpgrade()`
+- **Storage collision during upgrade**: Prevented by namespaced storage slot (isolated from proxy metadata)
+- **Bypass of withdrawal limits after upgrade**: V2 initialization enforces limits; tests verify enforcement
+- **Improper initialization ordering**: `reinitializer(2)` ensures V2 init runs exactly once after V1
+- **Front-running initialization**: Initializer modifiers prevent re-initialization attacks
 
 ## Future Improvements
 
-- [ ] Add events for all state changes (better indexing)
-- [ ] Implement EIP-2535 (full Diamond pattern with facets)
-- [ ] Add role-based access control (RBAC)
-- [ ] Per-user withdrawal limits (not just per-tx)
-- [ ] Time-weighted average limits (prevent gaming delays)
-- [ ] Emergency withdrawal with governance vote
+- [ ] Comprehensive event emission for all state changes
+- [ ] Role-based access control (RBAC) via `AccessControlUpgradeable`
+- [ ] Per-user withdrawal limits (not just per-transaction)
+- [ ] Time-weighted average limits
+- [ ] Timelock for upgrades
+- [ ] Multi-signature ownership
 
 ## Tech Stack
 
@@ -188,25 +197,15 @@ forge script script/DeployFeeVault.s.sol --rpc-url $RPC_URL --broadcast --verify
 - OpenZeppelin Upgradeable Contracts
 - ERC1967 Proxy
 
+## Disclaimer
+
+This is a portfolio demonstration project. Not audited. Not intended for production use with real funds.
+
 ## License
 
 MIT
 
-## 📫 Contact & Portfolio
+## Contact
 
-**Built by**: [Bhanu Jangid]  
 **GitHub**: [github.com/ChapuKosi](https://github.com/ChapuKosi)  
 **Email**: bhanujangid0212@gmail.com
-
-
-## ⚠️ Disclaimer
-
-This project is a portfolio demonstration of smart contract development skills. It is not audited and is not intended for production deployment with real funds.
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
