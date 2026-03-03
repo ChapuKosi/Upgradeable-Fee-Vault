@@ -132,7 +132,21 @@ forge test -vv
 
 ## Deployment
 
-**Local (Anvil)**
+### Sepolia Testnet (Live)
+
+**V1 Deployment** (Block 10374910)
+- **Proxy**: [`0xd09511d3b8A1744b6C4d2Cb3DA5024c7C49aaC48`](https://sepolia.etherscan.io/address/0xd09511d3b8a1744b6c4d2cb3da5024c7c49aac48)
+- **V1 Implementation**: [`0x9113058E5081c26E18D64846e972521BB461e978`](https://sepolia.etherscan.io/address/0x9113058e5081c26e18d64846e972521bb461e978)
+- **Owner**: `0xC940442D6BF15b3b136b17D007e4694B8fb9251E`
+
+**V2 Upgrade** (Block 10374932)
+- **V2 Implementation**: [`0xE1763ae89c4DF7E024991Ad46f14F2d684D0222C`](https://sepolia.etherscan.io/address/0xe1763ae89c4df7e024991ad46f14f2d684d0222c)
+- **Max Withdraw per TX**: 0 (unlimited)
+- **Withdrawal Delay**: 86400 seconds (1 day)
+
+> **Interact with the proxy** at `0xd09511d3b8A1744b6C4d2Cb3DA5024c7C49aaC48` to use V2 features.
+
+### Local (Anvil)
 ```bash
 # Terminal 1
 anvil
@@ -145,9 +159,19 @@ PRIVATE_KEY=0x... VAULT_PROXY=0x... \
   forge script script/UpgradeToV2.s.sol --rpc-url http://127.0.0.1:8545 --broadcast
 ```
 
-**Testnet**
+### Testnet Deployment Commands
 ```bash
-forge script script/DeployFeeVault.s.sol --rpc-url $RPC_URL --broadcast --verify
+# Set up .env file
+cp .env.example .env
+# Edit .env with your PRIVATE_KEY, VAULT_OWNER, SEPOLIA_RPC_URL, ETHERSCAN_API_KEY
+
+# Deploy V1
+source .env && forge script script/DeployFeeVault.s.sol:DeployFeeVault \
+  --rpc-url $SEPOLIA_RPC_URL --broadcast --verify
+
+# Upgrade to V2 (update VAULT_PROXY in .env first)
+source .env && forge script script/UpgradeToV2.s.sol:UpgradeToV2 \
+  --rpc-url $SEPOLIA_RPC_URL --broadcast --verify
 ```
 
 ## Security Considerations
